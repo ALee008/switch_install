@@ -1,7 +1,7 @@
 import os
 import re
+import csv
 import glob
-import json
 import string
 
 
@@ -13,6 +13,7 @@ class Switch(object):
         self.filepath = path
         self.root, self.dirname = os.path.split(self.filepath)
         self.and_update_tag = '.and.Update.'
+        self.list_of_updates_and_patches_url = 'http://www.benoitren.be/switch-gamepatches.html'
 
     def get_name(self):
         """
@@ -41,6 +42,20 @@ class Game(Switch):
         self.update = Update(self.filepath)
         self.dlc = DLC(self.filepath)
 
+    @staticmethod
+    def filter_non_game_elements(element):
+        """
+        Filter elements which are not relevant. Goal is to get the game file name.
+        :param element: element to check condiiton.
+        :return: (boolean)
+        """
+        if 'update'.upper() in element.upper():
+            return False
+        if 'upd'.upper() in element.upper():
+            return False
+
+        return True
+
     def get_short_name(self):
         """
         Get technical name and extension of game.
@@ -49,7 +64,7 @@ class Game(Switch):
         short_name, extension = ('', '')
         for folder, sub_folder, files in os.walk(self.filepath):
             for _file in files:
-                if 'update'.upper() not in _file.upper():
+                if self.filter_non_game_elements(_file):
                     short_name, extension = os.path.splitext(_file)
 
         return short_name, extension[1:].upper()
@@ -61,7 +76,7 @@ class Update(Switch):
         super(Update, self).__init__(path)
         self.updates_path = os.path.join(self.root, '_DLC.and.Updates')
         self.update_tag = "update"
-        self.update_pattern = r"v(?P<version>(\d|.)+)"
+        self.update_pattern = r"\.v(?P<version>(\d|.)+)"
 
     def get_updates(self):
         """
@@ -76,8 +91,11 @@ class Update(Switch):
         game_update_folders = glob.glob(os.path.join(self.updates_path, self.game_name+'*'))
         if game_update_folders:
             for update_folder in game_update_folders:
-                update_version = re.search(self.update_pattern, update_folder).groupdict()['version']
-                updates.append(update_version)
+                update_version_match = re.search(self.update_pattern, update_folder)
+                # if update exists
+                if update_version_match:
+                    update_version = update_version_match.groupdict()['version']
+                    updates.append(update_version)
 
         return sorted(updates)
 
@@ -106,16 +124,28 @@ class DLC(Switch):
 
 
 def get_game_infos(filepath):
+    """
+    Gather game info for later export.
+    :param filepath: (str) path where games are located.
+    :return: (tuple) game infos
+    """
     game = Game(filepath)
 
-    print "Processing %s" % game.game_name
+    print "Processing game %s ..." % game.game_name
     game_infos = (game.game_name, game.short_name, game.extension,
                   game.update.update_versions, game.dlc.dlcs)
 
+    print game_infos
+
     return game_infos
 
+
 def run_collect_game_infos(games_path):
-    #
+    """
+    Collect all games info in result list.
+    :param games_path: (str) path where games are located.
+    :return: (list) each game info as element of this list.
+    """
     games_abs_path = [game for game in glob.glob(games_path+r'\*')
                       if os.path.isdir(game)
                       and not os.path.basename(game).startswith('_DLC')]
@@ -127,6 +157,24 @@ def run_collect_game_infos(games_path):
 
     return res
 
-t = run_collect_game_infos(r'C:\temp')
 
-print t
+def write_to_file(outfile, result_list):
+    """
+
+    :param outfile:
+    :param result_list:
+    :return:
+    """
+    header = ['game', 'short_name', 'extension', 'updates', 'dlcs']
+    with open(outfile, 'wb') as outf:
+        result_writer = csv.writer(outf, delimiter=';')
+        result_writer.writerow(header)
+        for res in result_list:
+            result_writer.writerow(res)
+
+    return None
+
+
+_path = r'\\KH-NAS\Sicherungen\Games\Switch'#r'C:\temp'
+t = run_collect_game_infos(_path)
+write_to_file(r'C:\temp\test.csv', t)
