@@ -65,7 +65,7 @@ class Update(Switch):
 
     def get_updates(self):
         """
-
+        Get available updates from root and dedicated updates and dlc subfolder.
         :return: (list) list of updates with version number for a game
         """
         updates = []
@@ -94,7 +94,7 @@ class DLC(Switch):
 
     def get_dlcs(self):
         """
-
+        Get available dlcs from dedicated dls folder.
         :return:
         """
         dlc_for_game = '*' + self.game_name + '*' + 'DLC' + '*'
